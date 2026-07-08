@@ -1,4 +1,4 @@
-# term-ai
+# @icingrain/term-ai
 
 Natural language requirements -> shell commands, directly inside your terminal.
 
@@ -18,9 +18,11 @@ Natural language requirements -> shell commands, directly inside your terminal.
 2. Use the shell normally.
 3. Type a request with the `#ai ` prefix.
 4. `term-ai` decides whether the current request needs session context.
-5. The selected AI provider returns a JSON command response.
-6. The command is copied to the clipboard and placed on the shell input line.
-7. Press Enter to execute, or edit/cancel it like a normal shell command.
+5. If the request is ambiguous, `term-ai` asks a direct follow-up question in the terminal.
+6. You answer the follow-up in-place, without typing another `#ai` line.
+7. The selected AI provider returns a JSON command response.
+8. The command is copied to the clipboard and placed on the shell input line.
+9. Press Enter to execute, or edit/cancel it like a normal shell command.
 
 Example:
 
@@ -39,13 +41,13 @@ lsof -nP -iTCP:8000 -sTCP:LISTEN
 For global CLI use:
 
 ```bash
-npm install -g term-ai
+npm install -g @icingrain/term-ai
 ```
 
 For local project use:
 
 ```bash
-npm install term-ai
+npm install @icingrain/term-ai
 ```
 
 For development from this repository:
@@ -109,10 +111,10 @@ If the request is ambiguous, the AI may ask a follow-up question:
 #ai 로그 지워줘
 ```
 
-Then answer with another `#ai` line:
+Then answer directly in the follow-up prompt:
 
 ```text
-#ai ./logs 폴더 안의 7일 지난 로그만
+./logs 폴더 안의 7일 지난 로그만
 ```
 
 ## Context Routing
@@ -131,7 +133,7 @@ Context-dependent requests include recent terminal output:
 #ai 방금 실패한 서버 다시 띄워줘
 ```
 
-This avoids simple requests being polluted by old terminal output.
+This avoids simple requests being polluted by old terminal output and keeps follow-up questions attached to the current request instead of starting a new one.
 
 ## Notes
 

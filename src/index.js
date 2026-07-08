@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createRequire } from "module";
+import readline from "node:readline/promises";
 import os from "os";
 
 import { loadConfig, runInitWizard } from "./config/configManager.js";
@@ -52,7 +53,7 @@ program
 
     const engine = new RequirementEngine({ provider, shell: shellName, platform, sessionLog });
 
-    attachInputBridge(ptyProcess, {
+    const inputBridge = attachInputBridge(ptyProcess, {
       triggerPrefix: "#ai ",
       getVisibleLine,
       onTriggerLine: async (requirementText) => {
@@ -61,15 +62,37 @@ program
         process.stdout.write(chalk.gray(`\n[AI 처리 중...] "${requirementText}"\n`));
 
         try {
-          const result = await engine.submit(requirementText);
+          let result = await engine.submitMain(requirementText);
 
-          if (result.type === "clarify") {
-            process.stdout.write(
-              chalk.yellow(`[AI 되묻기] ${result.question}\n`) +
-              chalk.gray(`계속하려면 "#ai <추가정보>" 로 답해주세요.\n`)
-            );
-          } else if (result.type === "command") {
-            engine.reset();
+          while (result.type === "clarify") {
+            inputBridge.setCaptureEnabled(false);
+            const prompt = readline.createInterface({
+              input: process.stdin,
+              output: process.stdout
+            });
+
+            let answer;
+            try {
+              answer = await prompt.question(
+                `${chalk.yellow(`[AI 되묻기] ${result.question}`)}\n` +
+                `${chalk.gray("추가 정보를 바로 입력하세요. 비워두고 Enter를 누르면 취소됩니다.")}\n> `
+              );
+            } finally {
+              prompt.close();
+              inputBridge.setCaptureEnabled(true);
+            }
+
+            if (!answer.trim()) {
+              engine.reset();
+              process.stdout.write(chalk.gray("[AI 요청을 취소했습니다.]\n"));
+              return;
+            }
+
+            process.stdout.write(chalk.gray(`[AI 추가 정보] "${answer.trim()}"\n`));
+            result = await engine.submitFollowUp(answer.trim());
+          }
+
+          if (result.type === "command") {
             const copied = await copyToClipboard(result.command, platform);
             process.stdout.write(chalk.green(`\n[생성된 명령어]\n${result.command}\n`));
             if (result.explanation) {
@@ -85,6 +108,7 @@ program
             process.stdout.write(chalk.red(`[오류] 응답을 해석하지 못했습니다:\n${result.raw}\n`));
           }
         } catch (err) {
+          inputBridge.setCaptureEnabled(true);
           process.stdout.write(chalk.red(`[오류] ${err.message}\n`));
         }
       }

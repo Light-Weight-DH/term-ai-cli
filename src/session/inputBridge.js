@@ -11,6 +11,7 @@ export function attachInputBridge(ptyProcess, { triggerPrefix = "#ai ", onTrigge
   let shadowLine = "";
   let withheldLine = "";
   let isPassthroughLine = false;
+  let captureEnabled = true;
   let inputSequenceBuffer = "";
   const debugInput = process.env.TERM_AI_DEBUG_INPUT === "1";
   const pasteStart = "\x1b[200~";
@@ -60,10 +61,27 @@ export function attachInputBridge(ptyProcess, { triggerPrefix = "#ai ", onTrigge
 
   const hasTerminalControlInput = (line) => line.includes("\x1b");
 
-  process.stdin.setRawMode?.(true);
-  process.stdin.resume();
+  const setCaptureEnabled = (enabled) => {
+    captureEnabled = enabled;
+
+    if (enabled) {
+      process.stdin.setRawMode?.(true);
+      process.stdin.resume();
+      return;
+    }
+
+    resetLineState();
+    process.stdin.setRawMode?.(false);
+    process.stdin.pause();
+  };
+
+  setCaptureEnabled(true);
 
   process.stdin.on("data", (data) => {
+    if (!captureEnabled) {
+      return;
+    }
+
     inputSequenceBuffer += data.toString("utf8");
     const [completeInput, remainingInput] = splitCompleteInput(inputSequenceBuffer);
     inputSequenceBuffer = remainingInput;
@@ -140,4 +158,8 @@ export function attachInputBridge(ptyProcess, { triggerPrefix = "#ai ", onTrigge
       isPassthroughLine = true;
     }
   });
+
+  return {
+    setCaptureEnabled
+  };
 }

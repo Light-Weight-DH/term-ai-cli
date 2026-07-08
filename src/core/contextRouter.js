@@ -46,12 +46,8 @@ const AMBIGUOUS_PATTERNS = [
   /그거|그 파일|해당/
 ];
 
-export function routeContextUsage(userText, hasPendingClarification = false) {
-  const normalized = userText.trim();
-
-  if (hasPendingClarification) {
-    return { includeSession: true, reason: "clarification-followup" };
-  }
+export function routeContextUsage({ mainRequest, supplementalDetails = [] }) {
+  const normalized = [mainRequest, ...supplementalDetails].join("\n").trim();
 
   if (SELF_CONTAINED_PATTERNS.some((pattern) => pattern.test(normalized))) {
     return { includeSession: false, reason: "self-contained-command" };

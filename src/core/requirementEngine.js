@@ -17,13 +17,41 @@ export class RequirementEngine {
     this.shell = shell;
     this.platform = platform;
     this.sessionLog = sessionLog;
-    this.requirementHistory = []; // [요구사항, 추가정보1, 추가정보2, ...]
+    this.activeTurn = null;
   }
 
-  // 사용자가 새 텍스트(최초 요구사항 또는 추가 정보)를 입력했을 때 호출
-  async submit(userText) {
-    this.requirementHistory.push(userText);
-    const route = routeContextUsage(userText, this.requirementHistory.length > 1);
+  startTurn(mainRequest) {
+    this.activeTurn = {
+      mainRequest,
+      supplementalDetails: []
+    };
+  }
+
+  appendFollowUp(detailText) {
+    if (!this.activeTurn) {
+      this.startTurn(detailText);
+      return;
+    }
+
+    this.activeTurn.supplementalDetails.push(detailText);
+  }
+
+  async submitMain(userText) {
+    this.startTurn(userText);
+    return this.runActiveTurn();
+  }
+
+  async submitFollowUp(userText) {
+    this.appendFollowUp(userText);
+    return this.runActiveTurn();
+  }
+
+  async runActiveTurn() {
+    if (!this.activeTurn) {
+      return { type: "error", raw: "활성 요청이 없습니다." };
+    }
+
+    const route = routeContextUsage(this.activeTurn);
     const sessionSnapshot = route.includeSession ? this.sessionLog.snapshot() : null;
 
     const systemPrompt = buildSystemPrompt({
@@ -32,7 +60,8 @@ export class RequirementEngine {
       includeSession: route.includeSession
     });
     const userPrompt = buildUserPrompt({
-      requirementHistory: this.requirementHistory,
+      mainRequest: this.activeTurn.mainRequest,
+      supplementalDetails: this.activeTurn.supplementalDetails,
       sessionSnapshot,
       includeSession: route.includeSession,
       routeReason: route.reason
@@ -51,14 +80,18 @@ export class RequirementEngine {
     }
 
     if (parsed.type === "command") {
-      // 명령이 확정되었으므로 다음 요청을 위해 히스토리 초기화(원하면 유지하도록 바꿀 수 있음)
+      this.reset();
       return { type: "command", command: parsed.command, explanation: parsed.explanation };
     }
 
     return { type: "error", raw };
   }
 
+  async submit(userText) {
+    return this.submitMain(userText);
+  }
+
   reset() {
-    this.requirementHistory = [];
+    this.activeTurn = null;
   }
 }
