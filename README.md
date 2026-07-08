@@ -47,6 +47,10 @@ npm link
 term-ai
 ```
 
+오프라인이나 의존성 설치가 어려운 환경에서는, 릴리스에 포함된 번들 tarball을 쓰는 방법을 참고하세요.
+
+- [번들 tarball 설치 안내](OFFLINE-INSTALL.md)
+
 ## 초기 설정
 
 ```bash

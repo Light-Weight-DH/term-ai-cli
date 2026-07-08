@@ -1,0 +1,63 @@
+name: release
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Bump patch version
+        run: |
+          npm version patch --no-git-tag-version
+          echo "VERSION=$(node -p \"require('./package.json').version\")" >> "$GITHUB_ENV"
+
+      - name: Create release tarball
+        run: npm pack
+
+      - name: Prepare git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit version bump
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore(release): v${VERSION} [skip ci]"
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+
+      - name: Push commit and tag
+        run: git push origin HEAD:master --follow-tags
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: v${{ env.VERSION }}
+          files: |
+            *.tgz
