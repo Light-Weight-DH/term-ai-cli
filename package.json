@@ -1,0 +1,21 @@
+{
+  "name": "term-ai-cli",
+  "version": "0.3.0",
+  "description": "Cross-platform terminal AI assistant: session context + requirements -> shell commands",
+  "type": "module",
+  "bin": {
+    "term-ai": "./bin/term-ai"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "node-pty": "^1.0.0",
+    "chalk": "^5.3.0",
+    "inquirer": "^10.2.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,14 @@
+node_modules/
+term-ai/
+
+.DS_Store
+**/.DS_Store
+
+.codegraph
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+.env
+.env.*
