@@ -1,4 +1,4 @@
-# term-ai-cli
+# term-ai
 
 Natural language requirements -> shell commands, directly inside your terminal.
 
@@ -35,6 +35,20 @@ lsof -nP -iTCP:8000 -sTCP:LISTEN
 ```
 
 ## Install
+
+For global CLI use:
+
+```bash
+npm install -g term-ai
+```
+
+For local project use:
+
+```bash
+npm install term-ai
+```
+
+For development from this repository:
 
 ```bash
 npm install
