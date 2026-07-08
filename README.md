@@ -1,159 +1,139 @@
 # @icingrain/term-ai
 
-Natural language requirements -> shell commands, directly inside your terminal.
+`term-ai`는 터미널 안에서 자연어 요구사항을 받아 셸 명령어로 바꿔주는 CLI입니다. `#ai`로 시작하는 한 줄을 입력하면 AI가 명령어를 만들고, 그 명령어를 셸 입력줄에 채워 넣습니다. 사용자가 Enter를 눌러야 실제 실행됩니다.  
+요구사항이 애매하면 터미널 안에서 바로 추가 질문을 하고, 그 답변은 같은 요청에 이어 붙여 처리합니다.
 
-`term-ai` starts an interactive shell session, watches for lines that begin with `#ai `, asks an AI provider to generate a command, then places the generated command back on your shell input line for review before execution. If the request needs more detail, it asks a direct follow-up question in the terminal and keeps that follow-up attached to the same request.
+## 동작 방식
 
-Korean guide: [README-ko.md](README-ko.md)
+1. `term-ai`를 실행하면 인터랙티브 셸 세션이 시작됩니다.
+2. 일반 셸 사용은 그대로 가능합니다.
+3. `#ai <요구사항>`을 입력하면 AI가 명령어를 생성합니다.
+4. 현재 세션 기록이 필요할 때만 참고합니다.
+5. 요구사항이 애매하면 터미널 안에서 바로 추가 질문을 합니다.
+6. 추가 질문에는 `#ai`를 다시 쓰지 말고, 바로 텍스트로 답합니다.
+7. 생성된 명령어는 클립보드에 복사되고 셸 입력줄에도 채워집니다.
+8. Enter를 누르면 실행되고, 수정하거나 취소할 수도 있습니다.
 
-## What It Does
-
-- Turns Korean or English requests into shell commands.
-- Uses the current terminal session only when the request needs context.
-- Supports direct typing, paste, and basic zsh/bash history recall for `#ai ...` requests.
-- Never auto-runs generated commands. You review the command and press Enter yourself.
-- Can use OpenAI API, Codex CLI subscription mode, Anthropic API, Claude Code CLI, or a custom OpenAI-compatible endpoint.
-
-## How It Works
-
-1. Start `term-ai`.
-2. Use the shell normally.
-3. Type a request with the `#ai ` prefix.
-4. `term-ai` decides whether the current request needs session context.
-5. If the request is ambiguous, `term-ai` asks a direct follow-up question in the terminal.
-6. You answer the follow-up in-place, without typing another `#ai` line.
-7. The selected AI provider returns a JSON command response.
-8. The command is copied to the clipboard and placed on the shell input line.
-9. Press Enter to execute, or edit/cancel it like a normal shell command.
-
-Example:
+예시:
 
 ```text
 #ai 네트워크 포트 8000 켜져 있는지 확인
 ```
 
-Generated command:
+생성된 명령어:
 
 ```bash
 lsof -nP -iTCP:8000 -sTCP:LISTEN
 ```
 
-## Install
+## 설치
 
-For global CLI use:
+전역 설치:
 
 ```bash
 npm install -g @icingrain/term-ai
 ```
 
-For local project use:
-
-```bash
-npm install @icingrain/term-ai
-```
-
-For development from this repository:
+개발용 로컬 설치:
 
 ```bash
 npm install
 npm link
 ```
 
-Then run:
+설치 후 실행:
 
 ```bash
 term-ai
 ```
 
-## Initial Setup
+## 초기 설정
 
 ```bash
 term-ai init
 ```
 
-Available providers:
+설정할 수 있는 프로바이더는 다음과 같습니다.
 
-1. OpenAI API key
-2. OpenAI ChatGPT subscription via Codex CLI
-3. Anthropic Claude API key
-4. Anthropic Claude Code via Claude CLI
-5. Custom OpenAI-compatible API endpoint
+1. OpenAI API 키
+2. OpenAI ChatGPT 구독 기반 Codex CLI
+3. Anthropic Claude API 키
+4. Claude Code CLI
+5. OpenAI 호환 커스텀 엔드포인트
 
-For Codex CLI mode, install and log in to Codex first:
+Codex CLI를 쓰려면 먼저 로그인해야 합니다.
 
 ```bash
 codex login
 ```
 
-For Claude Code CLI mode, install and log in to Claude Code first:
+Claude Code를 쓰려면 Claude CLI도 설치되어 있어야 합니다.
 
 ```bash
 claude
 ```
 
-## Usage
+## 사용 예시
 
-Start a session:
+세션 시작:
 
 ```bash
 term-ai
 ```
 
-Ask for a command:
+명령어 요청:
 
 ```text
 #ai 현재 폴더에서 가장 큰 파일 10개 찾아줘
 ```
 
-The generated command is shown, copied to the clipboard, and inserted into the shell input line. It is not executed until you press Enter.
-
-If the request is ambiguous, the AI may ask a follow-up question:
+요청이 애매하면 추가 질문이 나옵니다.
 
 ```text
 #ai 로그 지워줘
 ```
 
-Then answer directly in the follow-up prompt:
+그 다음에는 바로 이렇게 답합니다.
 
 ```text
 ./logs 폴더 안의 7일 지난 로그만
 ```
 
-## Context Routing
+## 세션 기록 사용
 
-`term-ai` does not always send terminal history to the AI provider.
+`term-ai`는 항상 터미널 기록을 보내지 않습니다.
 
-Self-contained requests skip session context:
+단독으로 충분한 요청은 세션 기록을 건너뜁니다.
 
 ```text
 #ai 네트워크 포트 8000 켜져 있는지 확인
 ```
 
-Context-dependent requests include recent terminal output:
+이전 출력이 필요한 요청은 최근 터미널 출력을 참고합니다.
 
 ```text
 #ai 방금 실패한 서버 다시 띄워줘
 ```
 
-This avoids simple requests being polluted by old terminal output and keeps follow-up questions attached to the current request instead of starting a new one.
+이 방식은 단순한 요청이 예전 출력에 흔들리는 걸 줄이고, 추가 질문도 같은 요청 흐름에 붙여 둡니다.
 
-## Notes
+## 주의 사항
 
-- macOS and zsh/bash are the primary tested environment.
-- Windows native PowerShell/cmd input-line insertion still needs separate QA.
-- Generated commands are inserted using bracketed paste on macOS/Linux.
-- Session log context is kept in memory and trimmed to a recent window.
-- API keys and provider settings are stored outside the project at `~/.term-ai-cli/config.json`.
+- macOS와 zsh/bash 기준으로 먼저 검증했습니다.
+- Windows native PowerShell/cmd 입력줄 주입은 별도 확인이 필요합니다.
+- 생성된 명령어는 자동 실행되지 않습니다.
+- 세션 기록은 메모리에서 최근 범위만 유지합니다.
+- 설정 파일은 프로젝트 안이 아니라 `~/.term-ai-cli/config.json`에 저장됩니다.
 
-## Development
+## 개발
 
-Run syntax checks:
+문법 확인:
 
 ```bash
 find src -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 node --check bin/term-ai
 ```
 
-## License
+## 라이선스
 
 Apache License 2.0
