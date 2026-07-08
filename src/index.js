@@ -98,12 +98,14 @@ program
             if (result.explanation) {
               process.stdout.write(chalk.gray(`(설명: ${result.explanation})\n`));
             }
-            process.stdout.write(
+          process.stdout.write(
               copied
                 ? chalk.gray(`[셸 입력줄에 채웠습니다. 클립보드에도 복사했습니다. 검토 후 Enter로 실행하세요.]\n`)
                 : chalk.gray(`[셸 입력줄에 채웠습니다. 검토 후 Enter로 실행하세요.]\n`)
             );
+            inputBridge.resetInputState();
             await injectCommand(ptyProcess, result.command);
+            inputBridge.resetInputState();
           } else {
             process.stdout.write(chalk.red(`[오류] 응답을 해석하지 못했습니다:\n${result.raw}\n`));
           }

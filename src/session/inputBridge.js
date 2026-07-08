@@ -61,6 +61,11 @@ export function attachInputBridge(ptyProcess, { triggerPrefix = "#ai ", onTrigge
 
   const hasTerminalControlInput = (line) => line.includes("\x1b");
 
+  const resetInputState = () => {
+    inputSequenceBuffer = "";
+    resetLineState();
+  };
+
   const setCaptureEnabled = (enabled) => {
     captureEnabled = enabled;
 
@@ -160,6 +165,7 @@ export function attachInputBridge(ptyProcess, { triggerPrefix = "#ai ", onTrigge
   });
 
   return {
-    setCaptureEnabled
+    setCaptureEnabled,
+    resetInputState
   };
 }
