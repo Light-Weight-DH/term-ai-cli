@@ -4,6 +4,8 @@ Natural language requirements -> shell commands, directly inside your terminal.
 
 `term-ai` starts an interactive shell session, watches for lines that begin with `#ai `, asks an AI provider to generate a command, then places the generated command back on your shell input line for review before execution. If the request needs more detail, it asks a direct follow-up question in the terminal and keeps that follow-up attached to the same request.
 
+Korean guide: [README-ko.md](README-ko.md)
+
 ## What It Does
 
 - Turns Korean or English requests into shell commands.
@@ -134,10 +136,6 @@ Context-dependent requests include recent terminal output:
 ```
 
 This avoids simple requests being polluted by old terminal output and keeps follow-up questions attached to the current request instead of starting a new one.
-
-## Korean Guide
-
-See [README-ko.md](README-ko.md) for a Korean walkthrough of setup, usage, and behavior.
 
 ## Notes
 
