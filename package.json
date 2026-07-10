@@ -1,6 +1,6 @@
 {
   "name": "@icingrain/term-ai",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Cross-platform terminal AI assistant: session context + requirements -> shell commands",
   "type": "module",
   "bin": {
