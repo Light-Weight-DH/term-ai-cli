@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - master
+    paths:
+      - "bin/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 permissions:
