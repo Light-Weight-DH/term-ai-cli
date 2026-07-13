@@ -1,7 +1,7 @@
 # @icingrain/term-ai
 
 [![npm version](https://img.shields.io/npm/v/@icingrain/term-ai?label=npm)](https://www.npmjs.com/package/@icingrain/term-ai)
-[![Release](https://img.shields.io/github/v/release/Light-Weight-DH/term-ai-cli)](https://github.com/Light-Weight-DH/term-ai-cli/releases)
+[![Release](https://img.shields.io/github/v/tag/Light-Weight-DH/term-ai-cli?label=release)](https://github.com/Light-Weight-DH/term-ai-cli/releases)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 `term-ai`는 터미널 안에서 자연어 요구사항을 받아 셸 명령어로 바꿔주는 CLI입니다. `#ai`로 시작하는 한 줄을 입력하면 AI가 명령어를 만들고, 그 명령어를 셸 입력줄에 채워 넣습니다. 사용자가 Enter를 눌러야 실제 실행됩니다.  
