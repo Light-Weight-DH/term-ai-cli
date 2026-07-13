@@ -2,8 +2,15 @@ name: release
 
 on:
   push:
+    branches:
+      - master
     tags:
       - "v*"
+    paths:
+      - "bin/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 permissions:
