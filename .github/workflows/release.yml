@@ -2,33 +2,36 @@ name: release
 
 on:
   push:
-    branches:
-      - master
-    paths:
-      - "bin/**"
-      - "src/**"
-      - "package.json"
-      - "package-lock.json"
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    if: github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
+  package:
+    name: package (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos
+            runner: macos-latest
+            artifact_name: term-ai-macos
+          - platform: windows
+            runner: windows-latest
+            artifact_name: term-ai-windows
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 18
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -37,33 +40,74 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Bump patch version
+      - name: Read package version
+        shell: bash
         run: |
-          npm version patch --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Create release tarball
-        run: npm pack
-
-      - name: Prepare git identity
+      - name: Prepare release directory
+        shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          RELEASE_DIR="term-ai-${VERSION}-${{ matrix.platform }}"
+          mkdir "$RELEASE_DIR"
+          cp -R \
+            bin \
+            src \
+            node_modules \
+            package.json \
+            package-lock.json \
+            README.md \
+            OFFLINE-INSTALL.md \
+            LICENSE \
+            "$RELEASE_DIR"/
+          echo "RELEASE_DIR=$RELEASE_DIR" >> "$GITHUB_ENV"
 
-      - name: Commit version bump
+      - name: Create macOS archive
+        if: matrix.platform == 'macos'
+        shell: bash
         run: |
-          git add package.json package-lock.json
-          git commit -m "chore(release): v${VERSION} [skip ci]"
-          git tag -a "v${VERSION}" -m "v${VERSION}"
+          tar -czf "${RELEASE_DIR}.tar.gz" "$RELEASE_DIR"
+          echo "ASSET=${RELEASE_DIR}.tar.gz" >> "$GITHUB_ENV"
 
-      - name: Push commit and tag
-        run: git push origin HEAD:master --follow-tags
+      - name: Create Windows archive
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path $env:RELEASE_DIR -DestinationPath "$env:RELEASE_DIR.zip" -Force
+          "ASSET=$env:RELEASE_DIR.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Read package version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
           name: v${{ env.VERSION }}
-          files: |
-            *.tgz
+          files: release-assets/*

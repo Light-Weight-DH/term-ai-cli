@@ -82,7 +82,7 @@ export function attachInputBridge(ptyProcess, { triggerPrefix = "#ai ", onTrigge
 
   setCaptureEnabled(true);
 
-  process.stdin.on("data", (data) => {
+  const onData = (data) => {
     if (!captureEnabled) {
       return;
     }
@@ -162,10 +162,20 @@ export function attachInputBridge(ptyProcess, { triggerPrefix = "#ai ", onTrigge
       withheldLine = "";
       isPassthroughLine = true;
     }
-  });
+  };
+
+  const dispose = () => {
+    captureEnabled = false;
+    process.stdin.off("data", onData);
+    process.stdin.setRawMode?.(false);
+    process.stdin.resume();
+  };
+
+  process.stdin.on("data", onData);
 
   return {
     setCaptureEnabled,
-    resetInputState
+    resetInputState,
+    dispose
   };
 }

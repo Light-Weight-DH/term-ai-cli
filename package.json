@@ -1,6 +1,6 @@
 {
   "name": "@icingrain/term-ai",
-  "version": "0.3.3",
+  "version": "0.3.17",
   "description": "Cross-platform terminal AI assistant: session context + requirements -> shell commands",
   "type": "module",
   "bin": {
@@ -11,12 +11,6 @@
     "src",
     "README.md",
     "LICENSE"
-  ],
-  "bundleDependencies": [
-    "chalk",
-    "commander",
-    "inquirer",
-    "node-pty"
   ],
   "scripts": {
     "start": "node src/index.js",

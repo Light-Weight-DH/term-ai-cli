@@ -78,7 +78,7 @@ export function detectDefaultShell() {
 // 실제 셸을 PTY로 스폰하고, 출력을 그대로 사용자 터미널에 중계하면서
 // 동시에 SessionLog에도 기록한다. stdin 처리는 inputBridge.js에서 별도로 담당
 // (트리거 문자열 감지를 위해 raw passthrough와 분리해야 하기 때문).
-export function spawnShellSession() {
+export function spawnShellSession({ onExit } = {}) {
   const shell = detectDefaultShell();
   const cols = process.stdout.columns || 80;
   const rows = process.stdout.rows || 30;
@@ -106,6 +106,7 @@ export function spawnShellSession() {
 
   ptyProcess.onExit(() => {
     process.stdin.setRawMode?.(false);
+    onExit?.();
     process.exit(0);
   });
 

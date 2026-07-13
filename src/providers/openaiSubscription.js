@@ -3,17 +3,16 @@ import { mkdtemp, readFile, rm } from "fs/promises";
 import os from "os";
 import path from "path";
 
-function buildCodexArgs({ model, outputPath }) {
-  const args = [
-    "exec",
-    "--skip-git-repo-check",
-    "--ephemeral",
-    "--ignore-rules",
-    "--sandbox",
-    "read-only",
-    "--output-last-message",
-    outputPath
-  ];
+export function buildCodexArgs({ model, outputPath, ignoreUserConfig = false } = {}) {
+  const args = ["exec", "--skip-git-repo-check", "--ephemeral"];
+
+  if (ignoreUserConfig) {
+    args.push("--ignore-user-config");
+  }
+
+  if (outputPath) {
+    args.push("--output-last-message", outputPath);
+  }
 
   if (model) {
     args.push("--model", model);
@@ -21,6 +20,32 @@ function buildCodexArgs({ model, outputPath }) {
 
   args.push("-");
   return args;
+}
+
+export function extractCodexStdout(stdout) {
+  const lines = stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.at(-1) || "";
+}
+
+function hasUnexpectedOption(error, option) {
+  return String(error.message).includes(`unexpected argument '${option}'`);
+}
+
+function hasConfigSchemaError(error) {
+  const message = String(error.message);
+  return message.includes("Error loading config.toml") && message.includes("invalid type");
+}
+
+function buildConfigSchemaError(error) {
+  return new Error(
+    `${error.message}\n` +
+      "Codex CLI 설정 파일이 현재 설치된 codex 버전과 호환되지 않습니다. " +
+      "`codex update`로 CLI를 업데이트하거나, `%USERPROFILE%\\.codex\\config.toml`의 features 설정을 현재 버전에 맞게 정리하세요."
+  );
 }
 
 // 자체 OAuth 재구현 대신, 사용자가 이미 `codex login`으로 인증해둔
@@ -31,10 +56,15 @@ export async function generate({ config, systemPrompt, userPrompt }) {
   const outputPath = path.join(tempDir, "last-message.txt");
 
   try {
-    return await new Promise((resolve, reject) => {
-      const binary = config.codexBinary || "codex";
-      const combinedPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-      const args = buildCodexArgs({ model: config.model, outputPath });
+    const binary = config.codexBinary || "codex";
+    const combinedPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
+
+    const runCodex = ({ useOutputFile, ignoreUserConfig = false }) => new Promise((resolve, reject) => {
+      const args = buildCodexArgs({
+        model: config.model,
+        outputPath: useOutputFile ? outputPath : null,
+        ignoreUserConfig
+      });
       const child = spawn(binary, args, {
         shell: process.platform === "win32",
         stdio: ["pipe", "pipe", "pipe"]
@@ -74,8 +104,13 @@ export async function generate({ config, systemPrompt, userPrompt }) {
         }
 
         try {
-          const lastMessage = await readFile(outputPath, "utf-8");
-          resolve(lastMessage.trim() || stdout.trim());
+          if (useOutputFile) {
+            const lastMessage = await readFile(outputPath, "utf-8");
+            resolve(lastMessage.trim() || stdout.trim());
+            return;
+          }
+
+          resolve(extractCodexStdout(stdout));
         } catch (err) {
           reject(new Error(`codex 응답 파일을 읽을 수 없습니다: ${err.message}`));
         }
@@ -83,6 +118,39 @@ export async function generate({ config, systemPrompt, userPrompt }) {
 
       child.stdin.end(combinedPrompt, "utf-8");
     });
+
+    try {
+      return await runCodex({ useOutputFile: true });
+    } catch (err) {
+      if (String(err.message).includes("unexpected argument '--output-last-message'")) {
+        return runCodex({ useOutputFile: false });
+      }
+
+      if (!hasConfigSchemaError(err)) {
+        throw err;
+      }
+
+      try {
+        return await runCodex({ useOutputFile: true, ignoreUserConfig: true });
+      } catch (retryErr) {
+        if (hasUnexpectedOption(retryErr, "--ignore-user-config")) {
+          throw buildConfigSchemaError(err);
+        }
+
+        if (String(retryErr.message).includes("unexpected argument '--output-last-message'")) {
+          try {
+            return await runCodex({ useOutputFile: false, ignoreUserConfig: true });
+          } catch (fallbackErr) {
+            if (hasUnexpectedOption(fallbackErr, "--ignore-user-config")) {
+              throw buildConfigSchemaError(err);
+            }
+            throw fallbackErr;
+          }
+        }
+
+        throw retryErr;
+      }
+    }
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

@@ -8,6 +8,8 @@ import { loadConfig, runInitWizard } from "./config/configManager.js";
 import { copyToClipboard } from "./session/clipboard.js";
 import { injectCommand, spawnShellSession } from "./session/ptyManager.js";
 import { attachInputBridge } from "./session/inputBridge.js";
+import { attachWindowsInputBridge } from "./session/windowsInputBridge.js";
+import { askWindowsClarification } from "./session/windowsClarificationPrompt.js";
 import { getProvider } from "./providers/index.js";
 import { RequirementEngine } from "./core/requirementEngine.js";
 
@@ -49,72 +51,111 @@ program
       )
     );
 
-    const { ptyProcess, sessionLog, getVisibleLine } = spawnShellSession();
+    let inputBridge;
+    let cleanedUp = false;
 
+    const cleanupInput = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      inputBridge?.dispose?.();
+      process.stdin.setRawMode?.(false);
+      process.stdin.resume();
+    };
+
+    const { ptyProcess, sessionLog, getVisibleLine } = spawnShellSession({ onExit: cleanupInput });
     const engine = new RequirementEngine({ provider, shell: shellName, platform, sessionLog });
 
-    const inputBridge = attachInputBridge(ptyProcess, {
-      triggerPrefix: "#ai ",
-      getVisibleLine,
-      onTriggerLine: async (requirementText) => {
-        if (!requirementText) return;
-
-        process.stdout.write(chalk.gray(`\n[AI 처리 중...] "${requirementText}"\n`));
-
-        try {
-          let result = await engine.submitMain(requirementText);
-
-          while (result.type === "clarify") {
-            inputBridge.setCaptureEnabled(false);
-            const prompt = readline.createInterface({
-              input: process.stdin,
-              output: process.stdout
-            });
-
-            let answer;
-            try {
-              answer = await prompt.question(
-                `${chalk.yellow(`[AI 되묻기] ${result.question}`)}\n` +
-                `${chalk.gray("추가 정보를 바로 입력하세요. 비워두고 Enter를 누르면 취소됩니다.")}\n> `
-              );
-            } finally {
-              prompt.close();
-              inputBridge.setCaptureEnabled(true);
-            }
-
-            if (!answer.trim()) {
-              engine.reset();
-              process.stdout.write(chalk.gray("[AI 요청을 취소했습니다.]\n"));
-              return;
-            }
-
-            process.stdout.write(chalk.gray(`[AI 추가 정보] "${answer.trim()}"\n`));
-            result = await engine.submitFollowUp(answer.trim());
-          }
-
-          if (result.type === "command") {
-            const copied = await copyToClipboard(result.command, platform);
-            process.stdout.write(chalk.green(`\n[생성된 명령어]\n${result.command}\n`));
-            if (result.explanation) {
-              process.stdout.write(chalk.gray(`(설명: ${result.explanation})\n`));
-            }
-          process.stdout.write(
-              copied
-                ? chalk.gray(`[셸 입력줄에 채웠습니다. 클립보드에도 복사했습니다. 검토 후 Enter로 실행하세요.]\n`)
-                : chalk.gray(`[셸 입력줄에 채웠습니다. 검토 후 Enter로 실행하세요.]\n`)
-            );
-            inputBridge.resetInputState();
-            await injectCommand(ptyProcess, result.command);
-            inputBridge.resetInputState();
-          } else {
-            process.stdout.write(chalk.red(`[오류] 응답을 해석하지 못했습니다:\n${result.raw}\n`));
-          }
-        } catch (err) {
-          inputBridge.setCaptureEnabled(true);
-          process.stdout.write(chalk.red(`[오류] ${err.message}\n`));
-        }
-      }
+    process.once("exit", cleanupInput);
+    process.once("SIGINT", () => {
+      cleanupInput();
+      process.exit(130);
     });
+    process.once("SIGTERM", () => {
+      cleanupInput();
+      process.exit(143);
+    });
+
+    const onTriggerLine = async (requirementText) => {
+      if (!requirementText) return;
+
+      process.stdout.write(chalk.gray(`\n[AI 처리 중...] "${requirementText}"\n`));
+
+      try {
+        let result = await engine.submitMain(requirementText);
+
+        while (result.type === "clarify") {
+          inputBridge.setCaptureEnabled(false);
+          const questionText =
+            `${chalk.yellow(`[AI 되묻기] ${result.question}`)}\n` +
+            `${chalk.gray("추가 정보를 바로 입력하세요. 비워두고 Enter를 누르면 취소됩니다.")}\n> `;
+          let answer;
+          try {
+            if (process.platform === "win32") {
+              answer = await askWindowsClarification(questionText);
+            } else {
+              const prompt = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+              });
+              try {
+                answer = (await prompt.question(questionText)).trim();
+              } finally {
+                prompt.close();
+              }
+            }
+          } finally {
+            inputBridge.setCaptureEnabled(true);
+          }
+
+          if (!answer) {
+            engine.reset();
+            process.stdout.write(chalk.gray("[AI 요청을 취소했습니다.]\n"));
+            return;
+          }
+
+          process.stdout.write(chalk.gray(`[AI 추가 정보] "${answer}"\n`));
+          result = await engine.submitFollowUp(answer);
+        }
+
+        if (result.type === "command") {
+          const copied = await copyToClipboard(result.command, platform);
+          process.stdout.write(chalk.green(`\n[생성된 명령어]\n${result.command}\n`));
+          if (result.explanation) {
+            process.stdout.write(chalk.gray(`(설명: ${result.explanation})\n`));
+          }
+          process.stdout.write(
+            copied
+              ? chalk.gray(`[셸 입력줄에 채웠습니다. 클립보드에도 복사했습니다. 검토 후 Enter로 실행하세요.]\n`)
+              : chalk.gray(`[셸 입력줄에 채웠습니다. 검토 후 Enter로 실행하세요.]\n`)
+          );
+          inputBridge.resetInputState();
+          inputBridge.setCaptureEnabled(false);
+          try {
+            await injectCommand(ptyProcess, result.command);
+          } finally {
+            inputBridge.resetInputState();
+            inputBridge.setCaptureEnabled(true);
+          }
+        } else {
+          process.stdout.write(chalk.red(`[오류] 응답을 해석하지 못했습니다:\n${result.raw}\n`));
+        }
+      } catch (err) {
+        inputBridge.setCaptureEnabled(true);
+        process.stdout.write(chalk.red(`[오류] ${err.message}\n`));
+      }
+    };
+
+    inputBridge = process.platform === "win32"
+      ? attachWindowsInputBridge(ptyProcess, {
+          triggerPrefix: "#ai ",
+          getVisibleLine,
+          onTriggerLine
+        })
+      : attachInputBridge(ptyProcess, {
+          triggerPrefix: "#ai ",
+          getVisibleLine,
+          onTriggerLine
+        });
   });
 
 program.parseAsync(process.argv);

@@ -1,12 +1,16 @@
 import { spawn } from "child_process";
 
-function candidatesForPlatform(platform) {
+export function candidatesForPlatform(platform) {
   if (platform === "darwin") {
     return [{ command: "pbcopy", args: [] }];
   }
 
   if (platform === "win32") {
-    return [{ command: "clip.exe", args: [] }];
+    return [
+      { command: "clip.exe", args: [] },
+      { command: "cmd.exe", args: ["/c", "clip"] },
+      { command: "powershell.exe", args: ["-NoProfile", "-Command", "Set-Clipboard -Value ([Console]::In.ReadToEnd())"] }
+    ];
   }
 
   return [

@@ -51,9 +51,11 @@ npm link
 term-ai
 ```
 
-오프라인이나 의존성 설치가 어려운 환경에서는, 릴리스에 포함된 번들 tarball을 쓰는 방법을 참고하세요.
+오프라인이거나 npm 의존성 설치가 어려운 환경에서는, GitHub Release에 포함된 운영체제별 실행 아카이브를 사용할 수 있습니다. 이 파일은 각 OS에서 설치한 의존성을 함께 묶어서 배포합니다.
 
-- [번들 tarball 설치 안내](OFFLINE-INSTALL.md)
+- [오프라인 설치 안내](OFFLINE-INSTALL.md)
+
+릴리스 파일은 `v<package.json version>` 태그 기준으로 생성됩니다.
 
 ## 초기 설정
 
@@ -80,6 +82,8 @@ Claude Code를 쓰려면 Claude CLI도 설치되어 있어야 합니다.
 ```bash
 claude
 ```
+
+구독 기반 CLI 프로바이더는 해당 CLI가 먼저 정상 로그인되어 있어야 합니다. `term-ai`는 Codex나 Claude Code 세션을 대신 로그인하지 않고, 설치된 CLI를 호출해서 명령어 생성을 요청합니다.
 
 ## 사용 예시
 
@@ -132,8 +136,9 @@ find ./logs -type f -mtime +7 -delete
 
 ## 주의 사항
 
-- macOS와 zsh/bash 기준으로 먼저 검증했습니다.
-- Windows native PowerShell/cmd 입력줄 주입은 별도 확인이 필요합니다.
+- macOS와 Windows는 입력 처리 방식이 달라 릴리스 파일을 운영체제별로 나눕니다.
+- Windows에서는 `term-ai` 종료 직후 같은 PowerShell/Windows Terminal 세션에서 `term-ai init`을 실행하면 키 입력이 깨질 수 있습니다. 이 경우 새 터미널 탭이나 창에서 다시 실행하세요.
+- `포트 확인`, `도커 확인`처럼 짧고 애매한 요청은 사용하는 프로바이더의 판단에 따라 바로 명령어가 나오거나 되묻기가 나올 수 있습니다.
 - 생성된 명령어는 자동 실행되지 않습니다.
 - 세션 기록은 메모리에서 최근 범위만 유지합니다.
 - 설정 파일은 프로젝트 안이 아니라 `~/.term-ai-cli/config.json`에 저장됩니다.
